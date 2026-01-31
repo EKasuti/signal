@@ -227,22 +227,37 @@ def create_campaign(campaign: Campaign, session: Session = Depends(get_session))
     session.add(campaign)
     session.commit()
     session.refresh(campaign)
+    # Re-fetch with relationships loaded for the response model
+    campaign = session.exec(
+        select(Campaign)
+        .where(Campaign.id == campaign.id)
+        .options(selectinload(Campaign.user), selectinload(Campaign.product))
+    ).first()
     return campaign
 
 @app.get("/campaigns", response_model=List[CampaignRead])
 def read_campaigns(session: Session = Depends(get_session)):
-    return session.exec(select(Campaign)).all()
+    return session.exec(select(Campaign).options(selectinload(Campaign.user), selectinload(Campaign.product))).all()
 
 @app.get("/campaigns/{campaign_id}", response_model=CampaignRead)
 def read_campaign(campaign_id: int, session: Session = Depends(get_session)):
-    campaign = session.get(Campaign, campaign_id)
+    campaign = session.exec(
+        select(Campaign)
+        .where(Campaign.id == campaign_id)
+        .options(selectinload(Campaign.user), selectinload(Campaign.product))
+    ).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return campaign
 
 @app.post("/campaigns/{campaign_id}/generate", response_model=CampaignRead)
 def generate_ad(campaign_id: int, session: Session = Depends(get_session)):
-    campaign = session.get(Campaign, campaign_id)
+    campaign = session.exec(
+        select(Campaign)
+        .where(Campaign.id == campaign_id)
+        .options(selectinload(Campaign.user), selectinload(Campaign.product))
+    ).first()
+
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
