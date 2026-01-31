@@ -3,16 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-
-interface Campaign {
-    id: number;
-    status: string;
-    sora_prompt: string;
-    creative_persona: any;
-    created_at: string;
-    user: any; // Using any for deep nested structure
-    product: any;
-}
+import { campaignsApi, Campaign } from '../../../api/campaigns'; // Adjusted path
 
 export default function CampaignDetails() {
     const params = useParams();
@@ -20,22 +11,17 @@ export default function CampaignDetails() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch(`http://127.0.0.1:8000/campaigns`) // Ideally we'd have a single Fetch endpoint, but filtering list for now as I recall checking main.py and didn't see GET /campaigns/{id}. 
-            // Wait, looking at main.py, I only have read_campaigns (list).
-            // I should probably add GET /campaigns/{id} too, but for speed I'll filter client side or just fetch all.
-            // Actually, to be robust I should add the endpoint. But let's check if I can just use the list for now. 
-            // I'll fetch list and find. Ideally I'd fix backend, but I want to keep momentum.
-            // Update: I'll use the list endpoint and filter.
-            .then(res => res.json())
-            .then((data: Campaign[]) => {
-                const found = data.find(c => c.id === Number(params.id));
-                setCampaign(found || null);
+        const fetchCampaign = async () => {
+            try {
+                const data = await campaignsApi.getById(Number(params.id));
+                setCampaign(data);
+            } catch (err: any) {
+                console.error("Failed to fetch campaign", err);
+            } finally {
                 setLoading(false);
-            })
-            .catch(err => {
-                console.error(err);
-                setLoading(false);
-            });
+            }
+        };
+        fetchCampaign();
     }, [params.id]);
 
     if (loading) return <div className="p-10 text-center">Loading...</div>;
@@ -60,8 +46,8 @@ export default function CampaignDetails() {
                         <p className="text-gray-500 text-sm">Created on {new Date(campaign.created_at).toLocaleString()}</p>
                     </div>
                     <span className={`px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider ${campaign.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            campaign.status === 'failed' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
+                        campaign.status === 'failed' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
                         }`}>
                         {campaign.status}
                     </span>
@@ -73,7 +59,7 @@ export default function CampaignDetails() {
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-900">User Persona</h3>
                             {/* Link to Edit User */}
-                            <Link href={`/users/${campaign.user.id}`} className="text-blue-600 text-sm hover:underline">
+                            <Link href={`/users/${campaign.user?.id}`} className="text-blue-600 text-sm hover:underline">
                                 View Full Profile &rarr;
                             </Link>
                         </div>
@@ -81,20 +67,21 @@ export default function CampaignDetails() {
                         <div className="space-y-3 text-sm">
                             <div className="p-3 bg-gray-50 rounded-lg">
                                 <span className="block text-xs uppercase text-gray-400 font-semibold mb-1">Identity</span>
-                                <div className="font-medium text-gray-900">{campaign.user.name}</div>
+                                <div className="font-medium text-gray-900">{campaign.user?.name}</div>
                                 <div className="text-gray-600">
-                                    {campaign.user.demographics?.age_range || "Age N/A"} • {campaign.user.demographics?.gender_identity || "Gender N/A"}
+                                    {/* Types need to be updated in campaign interface to handle this deeply, using optional chaining for safety */}
+                                    {(campaign.user as any).demographics?.age_range || "Age N/A"} • {(campaign.user as any).demographics?.gender_identity || "Gender N/A"}
                                 </div>
-                                <div className="text-gray-600">{campaign.user.demographics?.location_type || "Location N/A"}, {campaign.user.demographics?.country || ""}</div>
+                                <div className="text-gray-600">{(campaign.user as any).demographics?.location_type || "Location N/A"}, {(campaign.user as any).demographics?.country || ""}</div>
                             </div>
 
                             <div className="p-3 bg-gray-50 rounded-lg">
                                 <span className="block text-xs uppercase text-gray-400 font-semibold mb-1">Psychographics</span>
                                 <div className="text-gray-700">
-                                    <span className="font-medium">Values:</span> {campaign.user.psychographics?.values?.join(", ") || "N/A"}
+                                    <span className="font-medium">Values:</span> {(campaign.user as any).psychographics?.values?.join(", ") || "N/A"}
                                 </div>
                                 <div className="text-gray-700 mt-1">
-                                    <span className="font-medium">Personality:</span> {JSON.stringify(campaign.user.psychographics?.personality_traits || {})}
+                                    <span className="font-medium">Personality:</span> {JSON.stringify((campaign.user as any).psychographics?.personality_traits || {})}
                                 </div>
                             </div>
                         </div>
@@ -104,14 +91,14 @@ export default function CampaignDetails() {
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Product Details</h3>
                         <div className="flex gap-4">
-                            {campaign.product.image_url && (
-                                <img src={campaign.product.image_url} alt="Product" className="w-24 h-24 object-cover rounded-lg border border-gray-100" />
+                            {(campaign.product as any).image_url && (
+                                <img src={(campaign.product as any).image_url} alt="Product" className="w-24 h-24 object-cover rounded-lg border border-gray-100" />
                             )}
                             <div>
-                                <div className="font-bold text-gray-900">{campaign.product.name}</div>
-                                <p className="text-gray-600 text-sm mt-1">{campaign.product.description}</p>
+                                <div className="font-bold text-gray-900">{campaign.product?.name}</div>
+                                <p className="text-gray-600 text-sm mt-1">{(campaign.product as any).description}</p>
                                 <div className="mt-2 flex flex-wrap gap-2">
-                                    {campaign.product.features?.map((f: string, i: number) => (
+                                    {(campaign.product as any).features?.map((f: string, i: number) => (
                                         <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-100">
                                             {f}
                                         </span>

@@ -2,6 +2,10 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { usersApi } from '../../../api/users';
+import { productsApi } from '../../../api/products';
+import { campaignsApi } from '../../../api/campaigns';
+import { uploadsApi } from '../../../api/uploads';
 
 export default function NewCampaign() {
     const router = useRouter();
@@ -25,22 +29,12 @@ export default function NewCampaign() {
         image_url: ''
     });
 
-    const getApiUrl = () => process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.[0]) return;
 
-        const file = e.target.files[0];
-        const formData = new FormData();
-        formData.append('file', file);
-
         try {
-            const res = await fetch(`${getApiUrl()}/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-            if (!res.ok) throw new Error('Upload failed');
-            const data = await res.json();
+            const file = e.target.files[0];
+            const data = await uploadsApi.uploadFile(file);
             setProductData(prev => ({ ...prev, image_url: data.url }));
         } catch (err) {
             console.error(err);
@@ -50,7 +44,6 @@ export default function NewCampaign() {
 
     const handleSubmit = async () => {
         setLoading(true);
-        const apiUrl = getApiUrl();
         try {
             // 1. Create User with Expanded Data
             const userPayload = {
@@ -70,47 +63,26 @@ export default function NewCampaign() {
                 }
             };
 
-            const userRes = await fetch(`${apiUrl}/users`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(userPayload)
-            });
-            if (!userRes.ok) throw new Error('Failed to create user');
-            const user = await userRes.json();
+            const user = await usersApi.create(userPayload);
 
             // 2. Create Product
-            const prodRes = await fetch(`${apiUrl}/products`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...productData,
-                    features: productData.features.split(',').map(f => f.trim())
-                })
+            const product = await productsApi.create({
+                ...productData,
+                features: productData.features.split(',').map(f => f.trim())
             });
-            if (!prodRes.ok) throw new Error('Failed to create product');
-            const product = await prodRes.json();
 
             // 3. Create Campaign
-            const campRes = await fetch(`${apiUrl}/campaigns`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: user.id,
-                    product_id: product.id,
-                    status: 'pending',
-                    objective: 'awareness', // Default
-                    platform: 'instagram',
-                    duration_seconds: 15
-                })
+            const campaign = await campaignsApi.create({
+                user_id: user.id,
+                product_id: product.id,
+                status: 'pending',
+                objective: 'awareness', // Default
+                platform: 'instagram',
+                duration_seconds: 15
             });
-            if (!campRes.ok) throw new Error('Failed to create campaign');
-            const campaign = await campRes.json();
 
             // 4. Trigger Generation
-            const genRes = await fetch(`${apiUrl}/campaigns/${campaign.id}/generate`, {
-                method: 'POST'
-            });
-            if (!genRes.ok) throw new Error('Failed to generate ad');
+            await campaignsApi.generate(campaign.id);
 
             router.push('/');
         } catch (error) {

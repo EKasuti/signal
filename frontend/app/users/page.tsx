@@ -1,31 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-
-interface User {
-    id: number;
-    name: string;
-    demographics?: { age_range: string, gender_identity: string, country: string };
-    created_at: string;
-}
+import { useUsers } from '../../hooks/useUsers';
 
 export default function UsersList() {
-    const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetch('http://127.0.0.1:8000/users')
-            .then(res => res.json())
-            .then(data => {
-                setUsers(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error(err);
-                setLoading(false);
-            });
-    }, []);
+    const { users, loading } = useUsers();
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">

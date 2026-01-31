@@ -1,34 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-
-interface Campaign {
-  id: number;
-  status: string;
-  sora_prompt: string;
-  created_at: string;
-  user: { name: string; age: number; location: string; bio: string };
-  product: { name: string; description: string; image_url: string };
-}
+import { useCampaigns } from '../hooks/useCampaigns';
 
 export default function Dashboard() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    fetch(`${apiUrl}/campaigns`)
-      .then(res => res.json())
-      .then(data => {
-        setCampaigns(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Failed to fetch campaigns", err);
-        setLoading(false);
-      });
-  }, []);
+  const { campaigns, loading } = useCampaigns();
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">

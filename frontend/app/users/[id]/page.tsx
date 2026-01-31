@@ -3,35 +3,31 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { usersApi } from '../../../api/users'; // Adjusted import path
 
 export default function EditUser() {
     const params = useParams();
-    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [user, setUser] = useState<any>(null);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-
     useEffect(() => {
-        fetch(`${apiUrl}/users/${params.id}`)
-            .then(res => {
-                if (!res.ok) throw new Error("User not found");
-                return res.json();
-            })
-            .then(data => {
+        const fetchUser = async () => {
+            try {
+                const data = await usersApi.getById(Number(params.id));
                 // Ensure all subsections exist to prevent crashes
                 if (!data.demographics) data.demographics = {};
                 if (!data.psychographics) data.psychographics = {};
                 if (!data.lifestyle) data.lifestyle = {};
                 if (!data.media_preferences) data.media_preferences = {};
                 setUser(data);
+            } catch (err) {
+                console.error("Failed to fetch user", err);
+            } finally {
                 setLoading(false);
-            })
-            .catch(err => {
-                console.error(err);
-                setLoading(false);
-            });
+            }
+        };
+        fetchUser();
     }, [params.id]);
 
     const handleSave = async () => {
@@ -47,20 +43,19 @@ export default function EditUser() {
                 return [];
             };
 
-            cleanUser.psychographics.values = cleanArray(cleanUser.psychographics.values);
-            cleanUser.psychographics.motivations = cleanArray(cleanUser.psychographics.motivations);
-            cleanUser.lifestyle.hobbies = cleanArray(cleanUser.lifestyle.hobbies);
-            cleanUser.lifestyle.daily_environments = cleanArray(cleanUser.lifestyle.daily_environments);
-            cleanUser.media_preferences.preferred_platforms = cleanArray(cleanUser.media_preferences.preferred_platforms);
+            if (cleanUser.psychographics) {
+                cleanUser.psychographics.values = cleanArray(cleanUser.psychographics.values);
+                cleanUser.psychographics.motivations = cleanArray(cleanUser.psychographics.motivations);
+            }
+            if (cleanUser.lifestyle) {
+                cleanUser.lifestyle.hobbies = cleanArray(cleanUser.lifestyle.hobbies);
+                cleanUser.lifestyle.daily_environments = cleanArray(cleanUser.lifestyle.daily_environments);
+            }
+            if (cleanUser.media_preferences) {
+                cleanUser.media_preferences.preferred_platforms = cleanArray(cleanUser.media_preferences.preferred_platforms);
+            }
 
-            const res = await fetch(`${apiUrl}/users/${params.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cleanUser)
-            });
-
-            if (!res.ok) throw new Error("Failed to update");
-            const updated = await res.json();
+            const updated = await usersApi.update(Number(params.id), cleanUser);
 
             // Re-apply null checks for the updated data
             if (!updated.demographics) updated.demographics = {};
